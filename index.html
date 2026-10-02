@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Wars: Radial Falling Sand & Planetary Artillery</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+    <link rel="stylesheet" href="css/style.css?v=33">
+</head>
+<body>
+
+    <!-- Canvas Container -->
+    <div id="canvas-container">
+        <canvas id="gameCanvas"></canvas>
+        <canvas id="fxCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2;"></canvas>
+    </div>
+
+    <!-- Top Header Banner & Incremental Planetary Stats -->
+    <div id="top-hud" class="glass-panel">
+        <div class="brand-title">
+            <span class="brand-icon">🪐</span>
+            <span class="brand-text">GRAVITY WARS</span>
+            <span class="brand-badge">PLANET BREAKER</span>
+        </div>
+
+            <!-- Currencies & Planet Hardness Tier -->
+            <div class="hud-currency-wrap">
+                <div class="hud-stat stat-stardust" title="Stardust Currency (Earned by mining and vaporizing planetary crust)">
+                    <span>✨</span><span id="hud-stardust-val">0</span>
+                </div>
+                <div class="hud-stat stat-omega" title="Planetary Omega-Cores (Prestige currency earned by drilling through to destroy the planetary core)">
+                    <span>💎</span><span id="hud-omega-val">0</span> <span style="font-size: 10px; color: #ff88dd;">Ω</span>
+                </div>
+                <span id="hud-tier-badge" class="tier-badge" title="Current Planet Crust Hardness Classification">TIER 1: REGOLITH</span>
+            </div>
+
+        <!-- Core Integrity HP Bar -->
+        <div class="core-integrity-hud" title="Core Integrity (Reduce to 0% to trigger Supernova & earn Omega-Cores)">
+            <span class="core-integrity-label">CORE</span>
+            <div class="core-bar-track">
+                <div id="core-hp-fill" class="core-bar-fill"></div>
+            </div>
+            <span id="core-hp-val" class="core-hp-val">100%</span>
+        </div>
+
+        <div class="top-actions">
+            <button id="btn-toggle-heatmap" class="btn-heatmap" title="Toggle Thermal FLIR Heatmap Overlay (H)">🔥 HEATMAP: OFF</button>
+            <button id="btn-quick-reset" class="btn-secondary" title="Regenerate Current Tier Planet (R)">NEW PLANET</button>
+            <button id="btn-chaos-planet" class="btn-chaos" title="Generate 100% Random Chaos Planet (X)">🎲 CHAOS</button>
+        </div>
+    </div>
+
+    <!-- Top Right Corner Tools -->
+    <div class="corner-tools">
+        <div id="hud-fps-badge" class="corner-tool-badge" title="Frames Per Second">
+            <span id="fps-val">60</span><span class="fps-unit">FPS</span>
+        </div>
+        <button id="btn-reset-planet" class="corner-tool-btn" title="Regenerate Planet">
+            <svg viewBox="0 0 24 24" class="svg-icon" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6"></path>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+        </button>
+        <button id="btn-sound-toggle" class="corner-tool-btn" title="Toggle Sound">
+            <svg id="icon-sound" viewBox="0 0 24 24" class="svg-icon" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" fill-opacity="0.2"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+        </button>
+        <button id="btn-help-modal" class="corner-tool-btn" title="How to Play / Material Lore">
+            <svg viewBox="0 0 24 24" class="svg-icon" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Sandbox Material Brush & Cosmic Physics Toolbar (Locked for Incremental Mining) -->
+    <div id="sandbox-panel" class="glass-panel" style="display: none;">
+        <div class="panel-header">
+            <div class="panel-title">
+                <span>🧪</span>
+                <span>POWDER LAB</span>
+            </div>
+            <button id="btn-toggle-sandbox-panel" class="btn-toggle-panel" title="Minimize / Expand Panel">◀</button>
+        </div>
+
+        <div class="panel-content-wrap">
+            <div class="category-tabs">
+                <button class="cat-tab active" data-cat="all">ALL</button>
+                <button class="cat-tab" data-cat="solids">SOLID</button>
+                <button class="cat-tab" data-cat="powders">POWDER</button>
+                <button class="cat-tab" data-cat="liquids">LIQUID</button>
+                <button class="cat-tab" data-cat="gases">GAS</button>
+                <button class="cat-tab" data-cat="explosives">EXPL</button>
+                <button class="cat-tab" data-cat="cosmic">COSMIC</button>
+                <button class="cat-tab" data-cat="electronics">ELEC</button>
+            </div>
+
+            <div class="material-list-scroll">
+                <!-- Solids Accordion -->
+                <div class="cat-accordion collapsed" data-cat="solids">
+                    <div class="cat-accordion-header">
+                        <span>⚙ Solids & Structs (10)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="spray_stone" style="color: #94a3b8;">Stone</button>
+                            <button class="tool-btn" data-tool="spray_bedrock" style="color: #475569;">Bedrock</button>
+                            <button class="tool-btn" data-tool="spray_brick" style="color: #ea580c;">Brick</button>
+                            <button class="tool-btn" data-tool="spray_metal" style="color: #cbd5e1;">Metal</button>
+                            <button class="tool-btn" data-tool="spray_glass" style="color: #38bdf8;">Glass</button>
+                            <button class="tool-btn" data-tool="spray_diamond" style="color: #67e8f9;">Diamond</button>
+                            <button class="tool-btn" data-tool="spray_wood" style="color: #d97706;">Wood</button>
+                            <button class="tool-btn" data-tool="spray_obsidian" style="color: #a855f7;">Obsidian</button>
+                            <button class="tool-btn" data-tool="spray_ice" style="color: #e0f2fe;">Ice</button>
+                            <button class="tool-btn" data-tool="spray_c4" style="color: #f43f5e;">C-4</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Powders Accordion -->
+                <div class="cat-accordion" data-cat="powders">
+                    <div class="cat-accordion-header">
+                        <span>🌱 Powders & Earth (11)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn active" data-tool="spray_sand" style="color: #58b4d4;">Sand</button>
+                            <button class="tool-btn" data-tool="spray_dirt" style="color: #a87958;">Dirt</button>
+                            <button class="tool-btn" data-tool="spray_concrete" style="color: #94a3b8;">Concrete</button>
+                            <button class="tool-btn" data-tool="spray_snow" style="color: #ffffff;">Snow</button>
+                            <button class="tool-btn" data-tool="spray_salt" style="color: #f8fafc;">Salt</button>
+                            <button class="tool-btn" data-tool="spray_coal" style="color: #475569;">Coal</button>
+                            <button class="tool-btn" data-tool="spray_gravitite" style="color: #fa50da;">Gravitite</button>
+                            <button class="tool-btn" data-tool="spray_flora" style="color: #20e040;">Flora</button>
+                            <button class="tool-btn" data-tool="spray_thermite" style="color: #f59e0b;">Thermite</button>
+                            <button class="tool-btn" data-tool="spray_gunpowder" style="color: #94a3b8;">Gunpdr</button>
+                            <button class="tool-btn" data-tool="spray_fwrk" style="color: #ff33bb;">Firewrk</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liquids Accordion -->
+                <div class="cat-accordion collapsed" data-cat="liquids">
+                    <div class="cat-accordion-header">
+                        <span>💧 Liquids & Cryo (10)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="spray_water" style="color: #38bdf8;">Water</button>
+                            <button class="tool-btn" data-tool="spray_lava" style="color: #ff4400;">Lava</button>
+                            <button class="tool-btn" data-tool="spray_acid" style="color: #22c55e;">Acid</button>
+                            <button class="tool-btn" data-tool="spray_oil" style="color: #c084fc;">Oil</button>
+                            <button class="tool-btn" data-tool="spray_nitro" style="color: #4ade80;">Nitro</button>
+                            <button class="tool-btn" data-tool="spray_mud" style="color: #78350f;">Mud</button>
+                            <button class="tool-btn" data-tool="spray_ln2" style="color: #7dd3fc;">LN2</button>
+                            <button class="tool-btn" data-tool="spray_merc" style="color: #cbd5e1;">Merc</button>
+                            <button class="tool-btn" data-tool="spray_gel" style="color: #4ade80;">Gel</button>
+                            <button class="tool-btn" data-tool="spray_soap" style="color: #f472b6;">Soap</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gases Accordion -->
+                <div class="cat-accordion collapsed" data-cat="gases">
+                    <div class="cat-accordion-header">
+                        <span>💨 Atmospheric Gases (8)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="spray_metn" style="color: #4ade80;">Methane</button>
+                            <button class="tool-btn" data-tool="spray_oxyg" style="color: #38bdf8;">Oxygen</button>
+                            <button class="tool-btn" data-tool="spray_hygn" style="color: #e0f2fe;">Hydrog</button>
+                            <button class="tool-btn" data-tool="spray_co2" style="color: #94a3b8;">CO2</button>
+                            <button class="tool-btn" data-tool="spray_steam" style="color: #cbd5e1;">Steam</button>
+                            <button class="tool-btn" data-tool="spray_smoke" style="color: #64748b;">Smoke</button>
+                            <button class="tool-btn" data-tool="spray_fire" style="color: #ef4444;">Fire</button>
+                            <button class="tool-btn" data-tool="spray_plsm" style="color: #00f0ff;">Plasma</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explosives Accordion -->
+                <div class="cat-accordion collapsed" data-cat="explosives">
+                    <div class="cat-accordion-header">
+                        <span>💥 Explosives & Energy (6)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="spray_gunpowder" style="color: #94a3b8;">Gunpdr</button>
+                            <button class="tool-btn" data-tool="spray_c4" style="color: #f43f5e;">C-4</button>
+                            <button class="tool-btn" data-tool="spray_nitro" style="color: #4ade80;">Nitro</button>
+                            <button class="tool-btn" data-tool="spray_thermite" style="color: #f59e0b;">Thermite</button>
+                            <button class="tool-btn" data-tool="spray_fwrk" style="color: #ff33bb;">Firewrk</button>
+                            <button class="tool-btn" data-tool="spray_plsm" style="color: #00f0ff;">Plasma</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cosmic Accordion -->
+                <div class="cat-accordion collapsed" data-cat="cosmic">
+                    <div class="cat-accordion-header">
+                        <span>⚛ Cosmic & Nuclear (7)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="spray_clne" style="color: #eab308;">Clone</button>
+                            <button class="tool-btn" data-tool="spray_void" style="color: #d946ef;">Void</button>
+                            <button class="tool-btn" data-tool="spray_bhol" style="color: #a855f7;">B-Hole</button>
+                            <button class="tool-btn" data-tool="spray_whol" style="color: #ffffff;">W-Hole</button>
+                            <button class="tool-btn" data-tool="spray_uran" style="color: #22c55e;">Uran-235</button>
+                            <button class="tool-btn" data-tool="spray_neut" style="color: #e2e8f0;">Neutron</button>
+                            <button class="tool-btn" data-tool="spray_phot" style="color: #38bdf8;">Photon</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Electronics & Logic Accordion -->
+                <div class="cat-accordion collapsed" data-cat="electronics">
+                    <div class="cat-accordion-header">
+                        <span>⚡ Electronics & Logic (11)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="spray_sprk" style="color: #33ffff;">Spark</button>
+                            <button class="tool-btn" data-tool="spray_batt" style="color: #00e676;">Battery</button>
+                            <button class="tool-btn" data-tool="spray_swch" style="color: #20ff40;">Switch</button>
+                            <button class="tool-btn" data-tool="spray_insl" style="color: #94a3b8;">Insul</button>
+                            <button class="tool-btn" data-tool="spray_pscn" style="color: #38bdf8;">P-Semi</button>
+                            <button class="tool-btn" data-tool="spray_nscn" style="color: #f43f5e;">N-Semi</button>
+                            <button class="tool-btn" data-tool="spray_det" style="color: #20d090;">Sensor</button>
+                            <button class="tool-btn" data-tool="spray_tesl" style="color: #c084fc;">Tesla</button>
+                            <button class="tool-btn" data-tool="spray_lcry" style="color: #67e8f9;">LCD</button>
+                            <button class="tool-btn" data-tool="spray_emp" style="color: #e879f9;">EMP</button>
+                            <button class="tool-btn" data-tool="spray_elec" style="color: #fef08a;">Arc</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools Accordion -->
+                <!-- Tools Accordion -->
+                <div class="cat-accordion collapsed" data-cat="tools">
+                    <div class="cat-accordion-header">
+                        <span>🛠 Tools (2)</span>
+                        <span class="cat-accordion-caret">▼</span>
+                    </div>
+                    <div class="cat-accordion-body">
+                        <div class="material-grid">
+                            <button class="tool-btn" data-tool="clear_circle" style="color: #f43f5e;">Eraser</button>
+                            <button class="tool-btn" data-tool="blast_bomb" style="color: #ffaa00;">Blast</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Material Lore & Details Card -->
+            <div id="mat-info-card">
+                <div id="mat-info-title" class="mat-title">Sand</div>
+                <div id="mat-info-desc" class="mat-desc">Granular regolith powder. Forms rolling dunes and melts into glass under extreme heat.</div>
+            </div>
+
+            <div class="section-label" style="margin-top: 2px;">Brush Radius</div>
+            <div class="slider-group" style="padding: 0 4px;">
+                <input type="range" id="slider-brush-size" min="1" max="150" value="20">
+                <span id="label-brush-size">20px</span>
+            </div>
+
+            <button id="btn-toggle-antigrav" class="tool-btn" style="width: 100%; text-align: center; margin-top: 2px;">Invert Gravity: OFF</button>
+        </div>
+    </div>
+
+    <!-- Right-Hand Incremental Planet Breaker Arsenal & Upgrades Drawer -->
+    <div id="shop-panel" class="glass-panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <span>🛰️</span>
+                <span>PLANET ARSENAL</span>
+            </div>
+            <button id="btn-toggle-shop-panel" class="btn-toggle-panel" title="Minimize / Expand Shop">▶</button>
+        </div>
+
+        <div class="shop-content-wrap">
+            <div class="shop-tabs">
+                <button class="shop-tab active" data-shoptab="weapons">🛰️ ARSENAL</button>
+                <button class="shop-tab" data-shoptab="volatility">💎 CRUST HARDNESS</button>
+                <button class="shop-tab" data-shoptab="meta">🌌 OBSERVATORY</button>
+            </div>
+
+            <!-- Tab 1: Weapons & Passive Bombardment Arsenal -->
+            <div id="tab-content-weapons" class="shop-list-scroll">
+                <!-- Injected dynamically by main.js -->
+            </div>
+
+            <!-- Tab 2: Crust Hardness Tiers & Geological Classifications -->
+            <div id="tab-content-volatility" class="shop-list-scroll" style="display: none;">
+                <!-- Injected dynamically by main.js -->
+            </div>
+
+            <!-- Tab 3: Permanent Meta-Observatory Perks -->
+            <div id="tab-content-meta" class="shop-list-scroll" style="display: none;">
+                <!-- Injected dynamically by main.js -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Thermal FLIR Temperature Overlay Legend Bar -->
+    <div id="thermal-legend" class="glass-panel">
+        <div class="thermal-legend-title">
+            <span>THERMODYNAMIC FLIR SPECTRUM</span>
+            <span>-200°C ➔ +5000°C</span>
+        </div>
+        <div class="thermal-bar"></div>
+        <div class="thermal-labels">
+            <span>-200°C (Cryo)</span>
+            <span>0°C</span>
+            <span>100°C (Steam)</span>
+            <span>1200°C (Lava)</span>
+            <span>5000°C+ (Core)</span>
+        </div>
+    </div>
+
+    <!-- Controls Floating Hint -->
+    <div id="controls-hint" class="glass-panel">
+        <div><kbd>Left Click</kbd> Mine Grains &nbsp;|&nbsp; <kbd>Right / Middle Drag</kbd> Pan &nbsp;|&nbsp; <kbd>Scroll Wheel</kbd> Zoom</div>
+        <div><kbd>H</kbd> Thermal Heatmap &nbsp;|&nbsp; <kbd>R</kbd> New Planet &nbsp;|&nbsp; <kbd>X</kbd> Chaos &nbsp;|&nbsp; <kbd>C</kbd> Clear</div>
+    </div>
+
+    <!-- Help & Material Lore Modal -->
+    <div id="modal-help" class="modal-overlay hidden">
+        <div class="modal-card glass-panel" style="max-width: 680px; text-align: left;">
+            <h2 style="color: var(--neon-blue); margin-bottom: 12px;">Powder Toy Planetary Chemistry & Reactions</h2>
+            <div style="font-size: 13px; line-height: 1.6; color: #ccd6e8; max-height: 60vh; overflow-y: auto; padding-right: 8px;">
+                <p><strong>Universal Radial Gravity:</strong> Every grain, fluid droplet, and gas molecule accelerates toward the central point <code>(0, 0)</code>, forming circular continents, oceanic basins, and atmospheric envelopes.</p>
+                
+                <h4 style="color: #33ffff; margin-top: 10px;">⚡ Phase 3 Electronics, Logic & Semiconductors:</h4>
+                <ul style="padding-left: 20px;">
+                    <li><strong>SPRK (Electric Current):</strong> Fast-moving spark that conducts through Metal, Mercury, semiconductors, switches, and LCDs, detonating combustibles.</li>
+                    <li><strong>INSL (Insulator):</strong> Non-conductive, acid-proof, heat-proof barrier that isolates circuits and prevents short-circuits.</li>
+                    <li><strong>BATT (Battery):</strong> Constant high-voltage power generator that continuously charges adjacent wires and circuits.</li>
+                    <li><strong>PSCN (P-Type Semiconductor):</strong> Diode anode. Passes spark forward to NSCN and conductors, and turns Switches ON!</li>
+                    <li><strong>NSCN (N-Type Semiconductor):</strong> Diode cathode. Can ONLY be sparked by PSCN (creating one-way diodes), and turns Switches OFF!</li>
+                    <li><strong>SWCH (Switch):</strong> Logic gate wire toggled ON (green/conductive) by PSCN and OFF (amber/isolated) by NSCN.</li>
+                    <li><strong>DET (Proximity Sensor):</strong> Scans nearby space for moving particles, projectiles, or matter, firing sparks when motion is detected!</li>
+                    <li><strong>TESL (Tesla Coil):</strong> Discharges high-voltage atmospheric lightning arcs (ELEC) into the air towards targets.</li>
+                    <li><strong>LCRY (Liquid Crystal):</strong> Phosphor display element that illuminates brilliant neon cyan when powered.</li>
+                    <li><strong>EMP (Electromagnetic Pulse):</strong> Shockwave bomb that electrifies all circuitry in a massive radius.</li>
+                    <li><strong>ELEC (Lightning Bolt):</strong> Arcing atmospheric electricity that zaps conductors, ignites gases, and fuses sand into glass.</li>
+                </ul>
+
+                <h4 style="color: #38bdf8; margin-top: 10px;">🧪 Reinforced Cross-Material Chemical Matrix:</h4>
+                <ul style="padding-left: 20px;">
+                    <li><strong>Acid on Metals (Acid + Metal):</strong> Dissolves alloy into conductive Salt crystals while effervescing rising Hydrogen gas bubbles and electric sparks!</li>
+                    <li><strong>Acid Concrete Sludge (Acid + Concrete):</strong> Corrodes concrete into bubbling Mud sludge + heavy CO2 gas!</li>
+                    <li><strong>Acid Charring (Acid + Wood/Flora):</strong> Acid oxidizes organic matter into Charcoal (Coal) + Smoke + flammable Methane gas!</li>
+                    <li><strong>Phreatomagmatic Explosion (Lava + Ice/Snow):</strong> Flash-boiling steam detonation cracking surrounding rocks into Obsidian!</li>
+                    <li><strong>Thermite Steam Crack (Thermite + Water/Ice):</strong> Violent ultra-hot thermal steam explosion shattering terrain!</li>
+                    <li><strong>Cryo-Quench Diamond (LN2 + Lava):</strong> Flash-quenches superheated magma into precious Diamond crystals and Obsidian!</li>
+                    <li><strong>Electromagnetic Induction (Neutron + Metal/Merc):</strong> Radiation excites free conduction electrons into electric Sparks!</li>
+                    <li><strong>Pyrotechnic Fountains (Fireworks + Fire/Spark/Laser/Plasma):</strong> Radiates cascading multi-colored orbital spark fountains!</li>
+                    <li><strong>Osmotic Withering (Flora + Salt):</strong> Dehydrates vegetation into regolith sand!</li>
+                    <li><strong>Electrolysis (Water + Spark/Arc):</strong> Splits liquid water into bubbling Hydrogen and Oxygen gases!</li>
+                    <li><strong>Fulgurite Glass (Sand + Spark/Arc):</strong> Instant lightning strike fuses sand crystals into transparent Glass!</li>
+                    <li><strong>Acid Synthesis (Acid + Mercury):</strong> Catalyzes mercury into explosive shock-sensitive Nitroglycerin!</li>
+                    <li><strong>Hydrocarbon Cracking (Acid + Oil):</strong> Cracks petroleum sludge into flammable Methane gas + solid Coal!</li>
+                    <li><strong>Acid Leaching (Acid + Uranium):</strong> Acid bath extracts fissile isotopes, emitting Plasma and active Neutrons!</li>
+                    <li><strong>Soap Neutralization (Soap + Acid / Oil):</strong> Neutralizes acid into pure Water + Salt + CO2 foam, and breaks down oil slicks!</li>
+                    <li><strong>Cherenkov Moderator (Neutron + Water):</strong> Water moderates and absorbs neutron radiation safely, converting heat into Steam!</li>
+                    <li><strong>Radiolytic Gas Cracking (Neutron + Methane):</strong> Radiation breaks down methane into Hydrogen gas + carbon Coal!</li>
+                    <li><strong>Neutron Transmutation (Neutron + Stone/Sand):</strong> Transmutes ordinary mineral grains into radioactive Uranium-235!</li>
+                    <li><strong>Photoelectric Solar Cells (Photon + PSCN/NSCN):</strong> Direct light beams strike semiconductors, generating electrical Sparks!</li>
+                    <li><strong>Photofission (Photon + Uranium):</strong> High-energy laser beam triggers nuclear fission explosion!</li>
+                    <li><strong>Specular Mirror Optics (Photon + Mercury/Glass/Diamond):</strong> Photons reflect off mercury mirrors and refract through crystal prisms!</li>
+                    <li><strong>Photosynthesis (Flora + Water + Photon/CO2):</strong> Plants absorb water, light, and CO2 to thrive and exhale fresh Oxygen gas!</li>
+                    <li><strong>Cryo-Condensation (LN2 + Methane):</strong> Sub-zero liquid nitrogen condenses methane gas into liquid petroleum Oil!</li>
+                    <li><strong>Superconducting Freeze (LN2 + Mercury):</strong> Freezes liquid mercury into solid conductive Metal wire!</li>
+                    <li><strong>Cryo-Vitrification (LN2 + Flora/Wood/Gel):</strong> Flash-freezes organic matter and gel into shatterable Glass!</li>
+                    <li><strong>Singularity Annihilation (Black Hole + White Hole):</strong> Contact between singularities triggers a cosmic supernova explosion!</li>
+                    <li><strong>Stellar Fusion (Hydrogen + Plasma):</strong> Ignites a star core fusion reaction, emitting Plasma, Neutrons, and Photons!</li>
+                    <li><strong>Oxyhydrogen Detonation (Hydrogen + Oxygen + Spark):</strong> Supersonic clean explosion synthesizing pure liquid Water!</li>
+                    <li><strong>Metamorphic Diamond (Lava/Pressure + Coal):</strong> Extreme geothermal heat and compression metamorphoses coal into Diamond!</li>
+                    <li><strong>Thermal Vulcanization (Gel + Lava/Plasma):</strong> Vulcanizes elastic gel into resilient Obsidian armor!</li>
+                    <li><strong>Hydraulic Curing (Concrete + Water):</strong> Rapidly cures powder into indestructible solid Stone!</li>
+                </ul>
+            </div>
+            <button id="btn-close-help" class="btn-primary" style="width: 100%; margin-top: 14px; justify-content: center;">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/main.js?v=65"></script>
+</body>
+</html>
